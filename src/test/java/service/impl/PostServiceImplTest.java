@@ -1,8 +1,12 @@
 package service.impl;
 
+import com.crudapp.model.Label;
 import com.crudapp.model.Post;
 import com.crudapp.model.PostStatus;
+import com.crudapp.model.Writer;
+import com.crudapp.repository.LabelRepository;
 import com.crudapp.repository.PostRepository;
+import com.crudapp.repository.WriterRepository;
 import com.crudapp.service.impl.PostServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,30 +20,53 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class PostServiceImlTest {
+public class PostServiceImplTest {
     private PostRepository postRepository;
     private PostServiceImpl postService;
+    private WriterRepository writerRepository;
+    private LabelRepository labelRepository;
 
     @BeforeEach
     void setUp() {
         postRepository = mock(PostRepository.class);
-        postService = new PostServiceImpl(postRepository);
+        writerRepository = mock(WriterRepository.class);
+        labelRepository = mock(LabelRepository.class);
+        postService = new PostServiceImpl(postRepository, writerRepository, labelRepository);
     }
 
     @Test
     void testCreatePost() {
-        Post input = new Post("New Post", PostStatus.ACTIVE, Collections.emptyList());
-        Post saved = new Post("New Post", PostStatus.ACTIVE, Collections.emptyList());
-        saved.setId(1L);
+        Long writerId = 1L;
+        List<Long> labelIds = List.of(100L, 200L);
+        String content = "New Post";
 
-        when(postRepository.save(input)).thenReturn(saved);
+        // mocks
+        Writer writer = new Writer(writerId, "John", "Doe");
+        Label label1 = new Label(100L, "Java");
+        Label label2 = new Label(200L, "Spring");
+        List<Label> labels = List.of(label1, label2);
 
-        Post result = postService.createPost(input);
+        Post savedPost = new Post(content, writer, labels);
+        savedPost.setId(1L);
+        savedPost.setStatus(PostStatus.ACTIVE);
+
+        when(writerRepository.findById(writerId)).thenReturn(writer);
+        when(labelRepository.findById(100L)).thenReturn(label1);
+        when(labelRepository.findById(200L)).thenReturn(label2);
+        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
+
+        Post result = postService.createPost(content, writerId, labelIds);
 
         assertNotNull(result);
-        assertEquals(1L, result.getContent());
+        assertEquals(1L, result.getId());
         assertEquals("New Post", result.getContent());
-        verify(postRepository).save(input);
+        assertEquals(PostStatus.ACTIVE, result.getStatus());
+        assertEquals(2, result.getLabels().size());
+
+        verify(postRepository).save(any(Post.class));
+        verify(writerRepository).findById(writerId);
+        verify(labelRepository).findById(100L);
+        verify(labelRepository).findById(200L);
     }
 
     @Test
@@ -48,18 +75,18 @@ public class PostServiceImlTest {
         post.setId(1L);
         when(postRepository.getById(1L)).thenReturn(Optional.of(post));
 
-        Post result = postService.getById(1L);
+        Post result = postService.getPostById(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-        assertEquals("Existing Post", result.getContent());
+        assertEquals("Existing post", result.getContent());
     }
 
     @Test
     void testGetPostById_whenNotExists() {
         when(postRepository.getById(999L)).thenReturn(Optional.empty());
 
-        Post result = postService.getById(999L);
+        Post result = postService.getPostById(999L);
 
         assertNull(result);
     }
@@ -74,7 +101,7 @@ public class PostServiceImlTest {
 
         when(postRepository.getAll()).thenReturn(posts);
 
-        List<Post> result = postService.getAll();
+        List<Post> result = postService.getAllPosts();
 
         assertEquals(2, result.size());
         verify(postRepository).getAll();
@@ -84,22 +111,13 @@ public class PostServiceImlTest {
     void testUpdatePost_whenExists() {
         Post existing = new Post("Old Content", PostStatus.ACTIVE, Collections.emptyList());
         existing.setId(1L);
-        Post updated = new Post("New Content", PostStatus.UNDER_REVIEW, Collections.emptyList());
-        updated.setId(1L);
-
         when(postRepository.getById(1L)).thenReturn(Optional.of(existing));
-        when(postRepository.update(any(Post.class))).thenReturn(updated);
+        when(postRepository.update(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Post result = postService.update(1L, updated);
+        Post result = postService.updatePost(1L, "New Content", PostStatus.UNDER_REVIEW); // ✅
 
         assertEquals("New Content", result.getContent());
         assertEquals(PostStatus.UNDER_REVIEW, result.getStatus());
-
-        ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
-        verify(postRepository).update(captor.capture());
-
-        Post captured = captor.getValue();
-        assertEquals("New Content", captured.getContent());
     }
 
     @Test
@@ -108,33 +126,17 @@ public class PostServiceImlTest {
 
         when(postRepository.getById(999L)).thenReturn(Optional.empty());
 
-        Post result = postService.update(999L, updated);
+        assertThrows(IllegalArgumentException.class, () -> {
+            postService.updatePost(999L, updated.getContent(), updated.getStatus());
+        });
 
-        assertNull(result);
         verify(postRepository, never()).update(any());
     }
 
     @Test
-    void testDeletePost_whenExists() {
-        Post post = new Post("To delete", PostStatus.ACTIVE, Collections.emptyList());
-        post.setId(1L);
-
-        when(postRepository.getById(1L)).thenReturn(Optional.of(post));
-
-        boolean deleted = postService.deleteById(1L);
-
-        assertTrue(deleted);
+    void testDeletePost() {
+        postService.deletePost(1L);
         verify(postRepository).deleteById(1L);
     }
-
-    @Test
-    void testDeletePost_whenNotExists() {
-        when(postRepository.getById(1L)).thenReturn(Optional.empty());
-
-        boolean deleted = postService.deleteById(1L);
-
-        assertFalse(deleted);
-        verify(postRepository, never()).deleteById(1L);
-    }
-    }
 }
+

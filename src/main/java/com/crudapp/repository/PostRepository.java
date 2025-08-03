@@ -1,4 +1,14 @@
-package com.crudapp.dao;
+package com.crudapp.repository;
 
-public class PostDao {
+import com.crudapp.model.Post;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PostRepository {
+    Post save(Post post);
+    Post update(Post post);
+    Optional<Post> getById(Long id);
+    List<Post> getAll();
+    void deleteById(Long id);
 }
