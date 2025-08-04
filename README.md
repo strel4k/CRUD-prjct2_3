@@ -20,7 +20,7 @@
 
 
 - 🪜 **Технологии**
-  - Java, MySQL, Hibernate, Flyway, Gradle.
+  - Java, MySQL, Hibernate, Flyway, Maven.
 
 - 🪃 **Как запустить**
   - Установи MySQL и создай базу данных crud_app
