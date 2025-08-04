@@ -1,4 +1,4 @@
-package com.crudapp;
+package com.crudapp.config;
 import org.flywaydb.core.Flyway;
 
 public class MigrationRunner {
